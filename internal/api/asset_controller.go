@@ -2,8 +2,6 @@ package api
 
 import (
 	"fmt"
-	"github.com/cryptogarageinc/server-common-go/pkg/database/orm"
-	"github.com/cryptogarageinc/server-common-go/pkg/utils/iso8601"
 	"math"
 	"net/http"
 	"p2pderivatives-oracle/internal/database/entity"
@@ -11,6 +9,9 @@ import (
 	"p2pderivatives-oracle/internal/dlccrypto"
 	"p2pderivatives-oracle/internal/oracle"
 	"time"
+
+	"github.com/cryptogarageinc/server-common-go/pkg/database/orm"
+	"github.com/cryptogarageinc/server-common-go/pkg/utils/iso8601"
 
 	"github.com/sirupsen/logrus"
 
@@ -57,9 +58,12 @@ func (ct *AssetController) Routes(route *gin.RouterGroup) {
 func (ct *AssetController) GetConfiguration(c *gin.Context) {
 	ginlogrus.SetCtxLoggerHeader(c, "request-header", "Get Asset Configuration")
 	c.JSON(http.StatusOK, &AssetConfigResponse{
-		StartDate: ct.config.StartDate,
-		Frequency: iso8601.EncodeDuration(ct.config.Frequency),
-		RangeD:    iso8601.EncodeDuration(ct.config.RangeD),
+		Asset:       ct.config.Asset,
+		Currency:    ct.config.Currency,
+		HasDecimals: ct.config.HasDecimals,
+		StartDate:   ct.config.StartDate,
+		Frequency:   iso8601.EncodeDuration(ct.config.Frequency),
+		RangeD:      iso8601.EncodeDuration(ct.config.RangeD),
 	})
 }
 
@@ -123,7 +127,7 @@ func (ct *AssetController) GetAssetSignature(c *gin.Context) {
 	}
 	if !dlcData.IsSigned() {
 		logger.Debug("Computing Signature")
-		asset, currency := ParseAssetID(ct.assetID)
+		asset, currency := ct.config.Asset, ct.config.Currency
 		feed := c.MustGet(ContextIDDataFeed).(datafeed.DataFeed)
 		value, err := feed.FindPastAssetPrice(asset, currency, dlcData.PublishedDate)
 		if err != nil {
@@ -131,8 +135,13 @@ func (ct *AssetController) GetAssetSignature(c *gin.Context) {
 			return
 		}
 
-		// round datafeed price to neareast integer
-		valueMessage := fmt.Sprintf("%d", int(math.Round(*value)))
+		var valueMessage string
+		if ct.config.HasDecimals {
+			valueMessage = fmt.Sprintf("%.2f", *value)
+		} else {
+			valueMessage = fmt.Sprintf("%d", int(math.Round(*value)))
+		}
+
 		oracleInstance := c.MustGet(ContextIDOracle).(*oracle.Oracle)
 		kvalue, err := dlccrypto.NewPrivateKey(dlcData.Kvalue)
 		if err != nil {
@@ -248,9 +257,4 @@ func ParseTime(timeParam string) (*time.Time, error) {
 	}
 	utc := timestamp.UTC()
 	return &utc, nil
-}
-
-// ParseAssetID will return the asset and currency related to the asset id
-func ParseAssetID(assetID string) (asset string, currency string) {
-	return assetID[0:3], assetID[3:6]
 }

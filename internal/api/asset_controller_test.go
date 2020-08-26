@@ -30,6 +30,8 @@ var TestAsset = &entity.Asset{
 }
 
 var TestAssetConfig = &api.AssetConfig{
+	Asset:     "btc",
+	Currency:  "usd",
 	StartDate: time.Date(2020, time.January, 1, 0, 0, 0, 0, time.UTC),
 	Frequency: time.Hour,
 	RangeD:    time.Hour * 48,
@@ -102,6 +104,8 @@ func TestAssetController_GetConfiguration(t *testing.T) {
 	r.ServeHTTP(resp, c.Request)
 	if assert.Equal(t, http.StatusOK, resp.Code) {
 		expected := &api.AssetConfigResponse{
+			Asset:     TestAssetConfig.Asset,
+			Currency:  TestAssetConfig.Currency,
 			StartDate: TestAssetConfig.StartDate,
 			Frequency: "PT1H",
 			RangeD:    "P2DT",

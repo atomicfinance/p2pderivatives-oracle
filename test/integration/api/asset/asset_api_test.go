@@ -8,10 +8,11 @@ import (
 	"os"
 	"p2pderivatives-oracle/internal/api"
 	"p2pderivatives-oracle/internal/dlccrypto"
-	"github.com/cryptogarageinc/server-common-go/pkg/utils/iso8601"
 	helper "p2pderivatives-oracle/test/integration"
 	"testing"
 	"time"
+
+	"github.com/cryptogarageinc/server-common-go/pkg/utils/iso8601"
 
 	"github.com/stretchr/testify/assert"
 )
@@ -62,6 +63,9 @@ func TestGetAssetConfig_WithValidAssets_ReturnsCorrectValue(t *testing.T) {
 			resp, err := req.Get(api.AssetBaseRoute + "/" + asset + api.RouteGETAssetConfig)
 			assert.NoError(t, err)
 			actual := resp.Result().(*api.AssetConfigResponse)
+			assert.Equal(t, expectedConfig.Asset, actual.Asset)
+			assert.Equal(t, expectedConfig.Currency, actual.Currency)
+			assert.Equal(t, expectedConfig.HasDecimals, actual.HasDecimals)
 			assert.Equal(t, expectedConfig.StartDate, actual.StartDate)
 			assert.Equal(t, iso8601.EncodeDuration(expectedConfig.Frequency), actual.Frequency)
 			assert.Equal(t, iso8601.EncodeDuration(expectedConfig.RangeD), actual.RangeD)
