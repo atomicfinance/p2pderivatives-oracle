@@ -238,7 +238,9 @@ func validateAssetEventAndTime(c *gin.Context, assetID string, config AssetConfi
 	timestampStr := c.Param(URLParamTagTime)
 	eventType := c.Query(URLQueryTagEventType)
 
-	// rawEventType, _ := parseEventType(eventType)
+	if eventType == "" {
+		eventType = "digits"
+	}
 
 	// TODO: Supported event types config
 
