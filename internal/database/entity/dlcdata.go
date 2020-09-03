@@ -11,6 +11,7 @@ type DLCData struct {
 	Base
 	PublishedDate time.Time `gorm:"primary_key"`
 	AssetID       string    `gorm:"primary_key"`
+	EventType     string    `gorm:"primary_key"`
 	Rvalue        string    `gorm:"unique;not null"`
 	Signature     string
 	Value         string
@@ -27,12 +28,13 @@ func (m *DLCData) IsSigned() bool {
 
 // CreateDLCData will try to create a DLCData with a new Rvalue corresponding to an asset and publishDate
 // if already in db, it will return the value found with no error
-func CreateDLCData(db *gorm.DB, assetID string, publishDate time.Time, signingk string, rvalue string) (*DLCData, error) {
+func CreateDLCData(db *gorm.DB, assetID string, publishDate time.Time, eventType string, signingk string, rvalue string) (*DLCData, error) {
 	tx := db.Begin()
 
 	newDLCData := &DLCData{
 		PublishedDate: publishDate,
 		AssetID:       assetID,
+		EventType:     eventType,
 		Kvalue:        signingk,
 		Rvalue:        rvalue,
 	}
@@ -49,10 +51,11 @@ func CreateDLCData(db *gorm.DB, assetID string, publishDate time.Time, signingk 
 
 // FindDLCDataPublishedNear will try to retrieve the oldest dlcData which has been published between nearTime and rangeD
 // limit
-func FindDLCDataPublishedNear(db *gorm.DB, assetID string, nearTime time.Time, rangeD time.Duration) (*DLCData, error) {
+func FindDLCDataPublishedNear(db *gorm.DB, assetID string, eventType string, nearTime time.Time, rangeD time.Duration) (*DLCData, error) {
 	dlcData := &DLCData{}
 	filterCondition := &DLCData{
-		AssetID: assetID,
+		AssetID:   assetID,
+		EventType: eventType,
 	}
 	req := db.Where(filterCondition)
 	limit := nearTime.Add(rangeD)
@@ -68,10 +71,11 @@ func FindDLCDataPublishedNear(db *gorm.DB, assetID string, nearTime time.Time, r
 
 // FindDLCDataPublishedBefore will try to retrieve the most recent dlcData which has been published BEFORE a specific
 // date
-func FindDLCDataPublishedBefore(db *gorm.DB, assetID string, nearTime time.Time) (*DLCData, error) {
+func FindDLCDataPublishedBefore(db *gorm.DB, assetID string, eventType string, nearTime time.Time) (*DLCData, error) {
 	dlcData := &DLCData{}
 	filterCondition := &DLCData{
-		AssetID: assetID,
+		AssetID:   assetID,
+		EventType: eventType,
 	}
 	req := db.Where(filterCondition)
 	// look for the most recent
@@ -86,11 +90,12 @@ func FindDLCDataPublishedBefore(db *gorm.DB, assetID string, nearTime time.Time)
 
 // FindDLCDataPublishedAt will try to retrieve asset dlcData at specific publish date
 // from database
-func FindDLCDataPublishedAt(db *gorm.DB, assetID string, publishDate time.Time) (*DLCData, error) {
+func FindDLCDataPublishedAt(db *gorm.DB, assetID string, publishDate time.Time, eventType string) (*DLCData, error) {
 	dlcData := &DLCData{}
 	filterCondition := &DLCData{
 		AssetID:       assetID,
 		PublishedDate: publishDate,
+		EventType:     eventType,
 	}
 	err := db.Where(filterCondition).Find(dlcData).Error
 	if err != nil {
@@ -101,10 +106,11 @@ func FindDLCDataPublishedAt(db *gorm.DB, assetID string, publishDate time.Time) 
 
 // UpdateDLCDataSignatureAndValue will try to update signature and value of the DLCData if it exists
 // and if the DLCdata is not already signed
-func UpdateDLCDataSignatureAndValue(db *gorm.DB, assetID string, publishDate time.Time, sig string, value string) (*DLCData, error) {
+func UpdateDLCDataSignatureAndValue(db *gorm.DB, assetID string, publishDate time.Time, eventType string, sig string, value string) (*DLCData, error) {
 	tx := db.Begin()
 	filterCondition := &DLCData{
 		AssetID:       assetID,
+		EventType:     eventType,
 		PublishedDate: publishDate,
 	}
 	tx = tx.Model(filterCondition)
@@ -126,5 +132,5 @@ func UpdateDLCDataSignatureAndValue(db *gorm.DB, assetID string, publishDate tim
 		}
 	}
 
-	return FindDLCDataPublishedAt(db, assetID, publishDate)
+	return FindDLCDataPublishedAt(db, assetID, publishDate, eventType)
 }
