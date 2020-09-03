@@ -32,12 +32,13 @@ type DLCDataResponse struct {
 
 // AssetConfigResponse represents the configuration of an asset api
 type AssetConfigResponse struct {
-	Asset       string    `json:"asset"`
-	Currency    string    `json:"currency"`
-	HasDecimals bool      `json:"hasDecimals"`
-	StartDate   time.Time `json:"startDate"`
-	Frequency   string    `json:"frequency"`
-	RangeD      string    `json:"range"`
+	Asset       string          `json:"asset"`
+	Currency    string          `json:"currency"`
+	HasDecimals bool            `json:"hasDecimals"`
+	StartDate   time.Time       `json:"startDate"`
+	Frequency   string          `json:"frequency"`
+	RangeD      string          `json:"range"`
+	EventTypes  map[string]bool `json:"eventTypes"`
 }
 
 // OraclePublicKeyResponse represents the public key of the oracle

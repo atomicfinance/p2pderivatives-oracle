@@ -22,6 +22,7 @@ func Test_CreateDLCData_NotPresent_ReturnsCorrectValue(t *testing.T) {
 	expected := &entity.DLCData{
 		PublishedDate: time.Now().UTC(),
 		AssetID:       "test",
+		EventType:     "digits",
 		Rvalue:        "rvalue",
 		Kvalue:        "kvalue",
 	}
@@ -31,6 +32,7 @@ func Test_CreateDLCData_NotPresent_ReturnsCorrectValue(t *testing.T) {
 		db,
 		expected.AssetID,
 		expected.PublishedDate,
+		expected.EventType,
 		expected.Kvalue,
 		expected.Rvalue)
 
@@ -43,27 +45,27 @@ func Test_CreateDLCData_NotPresent_ReturnsCorrectValue(t *testing.T) {
 func Test_CreateDLCData_Present_ReturnsError(t *testing.T) {
 	db := GetInitializedDB()
 	now := time.Now().UTC()
-	inDB := &entity.DLCData{AssetID: "test", PublishedDate: now, Kvalue: "kvalue1", Rvalue: "rvalue2"}
+	inDB := &entity.DLCData{AssetID: "test", PublishedDate: now, EventType: "digits", Kvalue: "kvalue1", Rvalue: "rvalue2"}
 	db.Create(inDB)
-	_, err := entity.CreateDLCData(db, inDB.AssetID, inDB.PublishedDate, inDB.Kvalue, inDB.Rvalue)
+	_, err := entity.CreateDLCData(db, inDB.AssetID, inDB.PublishedDate, inDB.EventType, inDB.Kvalue, inDB.Rvalue)
 	assert.Error(t, err)
 }
 
 func Test_FindDLCDataPublishedNear_NotPresent_ReturnsRecordNotFoundError(t *testing.T) {
 	db := GetInitializedDB()
 	now := time.Now()
-	expected := &entity.DLCData{AssetID: "test", PublishedDate: now.Add(time.Hour), Kvalue: "", Rvalue: ""}
+	expected := &entity.DLCData{AssetID: "test", PublishedDate: now.Add(time.Hour), EventType: "digits", Kvalue: "", Rvalue: ""}
 	db.Create(expected)
-	_, err := entity.FindDLCDataPublishedNear(db, expected.AssetID, now, 30*time.Minute)
+	_, err := entity.FindDLCDataPublishedNear(db, expected.AssetID, expected.EventType, now, 30*time.Minute)
 	assert.EqualError(t, err, gorm.ErrRecordNotFound.Error())
 }
 
 func Test_FindDLCDataPublishedNear_Present_ReturnsCorrectValue(t *testing.T) {
 	db := GetInitializedDB()
 	now := time.Now()
-	expected := &entity.DLCData{AssetID: "test", PublishedDate: now.Add(time.Hour), Kvalue: "", Rvalue: ""}
+	expected := &entity.DLCData{AssetID: "test", PublishedDate: now.Add(time.Hour), EventType: "digits", Kvalue: "", Rvalue: ""}
 	db.Create(expected)
-	actual, err := entity.FindDLCDataPublishedNear(db, expected.AssetID, now, 2*time.Hour)
+	actual, err := entity.FindDLCDataPublishedNear(db, expected.AssetID, expected.EventType, now, 2*time.Hour)
 	assert.NoError(t, err)
 	assert.Equal(t, expected.AssetID, actual.AssetID)
 	assert.True(t, expected.PublishedDate.Equal(actual.PublishedDate))
@@ -72,18 +74,18 @@ func Test_FindDLCDataPublishedNear_Present_ReturnsCorrectValue(t *testing.T) {
 func Test_FindDLCDataPublishedBefore_NotPresent_ReturnsRecordNotFoundError(t *testing.T) {
 	db := GetInitializedDB()
 	now := time.Now()
-	expected := &entity.DLCData{AssetID: "test", PublishedDate: now.Add(time.Hour), Kvalue: "", Rvalue: ""}
+	expected := &entity.DLCData{AssetID: "test", PublishedDate: now.Add(time.Hour), EventType: "digits", Kvalue: "", Rvalue: ""}
 	db.Create(expected)
-	_, err := entity.FindDLCDataPublishedBefore(db, expected.AssetID, now)
+	_, err := entity.FindDLCDataPublishedBefore(db, expected.AssetID, expected.EventType, now)
 	assert.EqualError(t, err, gorm.ErrRecordNotFound.Error())
 }
 
 func Test_FindDLCDataPublishedBefore_Present_ReturnsCorrectValue(t *testing.T) {
 	db := GetInitializedDB()
 	now := time.Now()
-	expected := &entity.DLCData{AssetID: "test", PublishedDate: now.Add(-1 * time.Hour), Kvalue: "", Rvalue: ""}
+	expected := &entity.DLCData{AssetID: "test", PublishedDate: now.Add(time.Hour), EventType: "digits", Kvalue: "", Rvalue: ""}
 	db.Create(expected)
-	actual, err := entity.FindDLCDataPublishedBefore(db, expected.AssetID, now)
+	actual, err := entity.FindDLCDataPublishedBefore(db, expected.AssetID, expected.EventType, now)
 	assert.NoError(t, err)
 	assert.Equal(t, expected.AssetID, actual.AssetID)
 	assert.True(t, expected.PublishedDate.Equal(actual.PublishedDate))
@@ -92,7 +94,7 @@ func Test_FindDLCDataPublishedBefore_Present_ReturnsCorrectValue(t *testing.T) {
 func Test_FindDLCDataPublishedAt_NotPresent_ReturnsRecordNotFoundError(t *testing.T) {
 	db := GetInitializedDB()
 	now := time.Now()
-	_, err := entity.FindDLCDataPublishedAt(db, "test", now)
+	_, err := entity.FindDLCDataPublishedAt(db, "test", now, "digits")
 	assert.EqualError(t, err, gorm.ErrRecordNotFound.Error())
 }
 
@@ -101,7 +103,7 @@ func Test_FindDLCDataPublishedAt_Present_ReturnsCorrectValue(t *testing.T) {
 	now := time.Now()
 	expected := &entity.DLCData{AssetID: "test", PublishedDate: now, Kvalue: "", Rvalue: ""}
 	db.Create(expected)
-	actual, err := entity.FindDLCDataPublishedAt(db, expected.AssetID, now)
+	actual, err := entity.FindDLCDataPublishedAt(db, expected.AssetID, now, "digits")
 	assert.NoError(t, err)
 	assert.Equal(t, expected.AssetID, actual.AssetID)
 	assert.True(t, expected.PublishedDate.Equal(actual.PublishedDate))
@@ -114,6 +116,7 @@ func Test_UpdateDLCDataSignatureAndValue_Present_ReturnsUpdated(t *testing.T) {
 	expected := &entity.DLCData{
 		AssetID:       "test",
 		PublishedDate: now,
+		EventType:     "digits",
 		Kvalue:        "",
 		Rvalue:        "",
 		Signature:     "new Signature",
@@ -125,6 +128,7 @@ func Test_UpdateDLCDataSignatureAndValue_Present_ReturnsUpdated(t *testing.T) {
 		db,
 		expected.AssetID,
 		expected.PublishedDate,
+		expected.EventType,
 		expected.Signature, expected.Value)
 
 	// assert

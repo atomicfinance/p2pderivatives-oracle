@@ -29,6 +29,9 @@ const (
 	// InvalidTimeTooLateBadRequestErrorCode represents a time parameter being to late in the current context.
 	InvalidTimeTooLateBadRequestErrorCode
 
+	// InvalidEventTypeErrorCode represents an invalid event being passed in a query
+	InvalidEventTypeErrorCode
+
 	// CryptoErrorCode
 
 	// UnknownCryptoErrorCode represents an error caused by the crypto computation resulting in an unexpected state.

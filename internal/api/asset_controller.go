@@ -8,6 +8,8 @@ import (
 	"p2pderivatives-oracle/internal/datafeed"
 	"p2pderivatives-oracle/internal/dlccrypto"
 	"p2pderivatives-oracle/internal/oracle"
+	"regexp"
+	"strconv"
 	"time"
 
 	"github.com/cryptogarageinc/server-common-go/pkg/database/orm"
@@ -25,6 +27,8 @@ import (
 const (
 	// URLParamTagTime Tag to use as date parameter in route
 	URLParamTagTime = "time"
+	// URLQueryTagEventType Tag to be used to select event type
+	URLQueryTagEventType = "eventType"
 	// RouteGETAssetConfig relative GET route to retrieve asset configuration
 	RouteGETAssetConfig = "/config"
 	// RouteGETAssetRvalue relative GET route to retrieve asset rvalue
@@ -62,6 +66,7 @@ func (ct *AssetController) GetConfiguration(c *gin.Context) {
 		Currency:    ct.config.Currency,
 		HasDecimals: ct.config.HasDecimals,
 		StartDate:   ct.config.StartDate,
+		EventTypes:  ct.config.EventTypes,
 		Frequency:   iso8601.EncodeDuration(ct.config.Frequency),
 		RangeD:      iso8601.EncodeDuration(ct.config.RangeD),
 	})
@@ -72,7 +77,7 @@ func (ct *AssetController) GetConfiguration(c *gin.Context) {
 func (ct *AssetController) GetAssetRvalue(c *gin.Context) {
 	ginlogrus.SetCtxLoggerHeader(c, "request-header", "Get Asset Rvalue")
 	logger := ginlogrus.GetCtxLogger(c)
-	_, requestedDate, err := validateAssetAndTime(c, ct.assetID)
+	_, eventType, requestedDate, err := validateAssetEventAndTime(c, ct.assetID, ct.config)
 	if err != nil {
 		c.Error(err)
 		return
@@ -86,7 +91,7 @@ func (ct *AssetController) GetAssetRvalue(c *gin.Context) {
 	oracleInstance := c.MustGet(ContextIDOracle).(*oracle.Oracle)
 	db := c.MustGet(ContextIDOrm).(*orm.ORM).GetDB()
 	crypto := c.MustGet(ContextIDCryptoService).(dlccrypto.CryptoService)
-	dlcData, err := findOrCreateDLCData(logger, db, crypto, ct.assetID, *publishDate, ct.config)
+	dlcData, err := findOrCreateDLCData(logger, db, crypto, ct.assetID, eventType, *publishDate, ct.config)
 	if err != nil {
 		c.Error(err)
 		return
@@ -99,7 +104,7 @@ func (ct *AssetController) GetAssetRvalue(c *gin.Context) {
 func (ct *AssetController) GetAssetSignature(c *gin.Context) {
 	ginlogrus.SetCtxLoggerHeader(c, "request-header", "Get Asset Signature")
 	logger := ginlogrus.GetCtxLogger(c)
-	_, requestedDate, err := validateAssetAndTime(c, ct.assetID)
+	_, eventType, requestedDate, err := validateAssetEventAndTime(c, ct.assetID, ct.config)
 	if err != nil {
 		c.Error(err)
 		return
@@ -120,7 +125,7 @@ func (ct *AssetController) GetAssetSignature(c *gin.Context) {
 	oracleInstance := c.MustGet(ContextIDOracle).(*oracle.Oracle)
 	db := c.MustGet(ContextIDOrm).(*orm.ORM).GetDB()
 	crypto := c.MustGet(ContextIDCryptoService).(dlccrypto.CryptoService)
-	dlcData, err := findOrCreateDLCData(logger, db, crypto, ct.assetID, *publishDate, ct.config)
+	dlcData, err := findOrCreateDLCData(logger, db, crypto, ct.assetID, eventType, *publishDate, ct.config)
 	if err != nil {
 		c.Error(err)
 		return
@@ -135,11 +140,29 @@ func (ct *AssetController) GetAssetSignature(c *gin.Context) {
 			return
 		}
 
+		rawEventType, eventParams := parseEventType(eventType)
 		var valueMessage string
-		if ct.config.HasDecimals {
-			valueMessage = fmt.Sprintf("%.2f", *value)
-		} else {
-			valueMessage = fmt.Sprintf("%d", int(math.Round(*value)))
+
+		switch rawEventType {
+		case "digits":
+			if ct.config.HasDecimals {
+				valueMessage = fmt.Sprintf("%.2f", *value)
+			} else {
+				valueMessage = fmt.Sprintf("%d", int(math.Round(*value)))
+			}
+		case "above":
+			f, err := strconv.ParseFloat(eventParams[0], 64)
+
+			if err != nil {
+				c.Error(NewUnknownCryptoServiceError(err))
+				return
+			}
+
+			if f < *value {
+				valueMessage = "true"
+			} else {
+				valueMessage = "false"
+			}
 		}
 
 		oracleInstance := c.MustGet(ContextIDOracle).(*oracle.Oracle)
@@ -158,6 +181,7 @@ func (ct *AssetController) GetAssetSignature(c *gin.Context) {
 			db,
 			dlcData.AssetID,
 			dlcData.PublishedDate,
+			dlcData.EventType,
 			sig.EncodeToString(),
 			valueMessage)
 
@@ -170,8 +194,8 @@ func (ct *AssetController) GetAssetSignature(c *gin.Context) {
 	c.JSON(http.StatusOK, NewDLCDataResponse(oracleInstance.PublicKey, dlcData))
 }
 
-func findOrCreateDLCData(logger *logrus.Entry, db *gorm.DB, oracle dlccrypto.CryptoService, assetID string, publishDate time.Time, config AssetConfig) (*entity.DLCData, error) {
-	dlcData, err := entity.FindDLCDataPublishedAt(db, assetID, publishDate)
+func findOrCreateDLCData(logger *logrus.Entry, db *gorm.DB, oracle dlccrypto.CryptoService, assetID, eventType string, publishDate time.Time, config AssetConfig) (*entity.DLCData, error) {
+	dlcData, err := entity.FindDLCDataPublishedAt(db, assetID, publishDate, eventType)
 	if err == nil {
 		logger.Debug("Found a matching DLC Data in db")
 	}
@@ -190,11 +214,12 @@ func findOrCreateDLCData(logger *logrus.Entry, db *gorm.DB, oracle dlccrypto.Cry
 			db,
 			assetID,
 			publishDate,
+			eventType,
 			signingK.EncodeToString(),
 			rvalue.EncodeToString())
 		if err != nil {
 			// need to retry to be sure a concurrent didn't try to create same DLCData
-			inDb, errFind := entity.FindDLCDataPublishedAt(db, assetID, publishDate)
+			inDb, errFind := entity.FindDLCDataPublishedAt(db, assetID, publishDate, eventType)
 			if errFind != nil {
 				return nil, NewUnknownDBError(err)
 			}
@@ -205,18 +230,47 @@ func findOrCreateDLCData(logger *logrus.Entry, db *gorm.DB, oracle dlccrypto.Cry
 	return dlcData, nil
 }
 
-func validateAssetAndTime(c *gin.Context, assetID string) (*entity.Asset, *time.Time, error) {
+func validateAssetEventAndTime(c *gin.Context, assetID string, config AssetConfig) (*entity.Asset, string, *time.Time, error) {
 	timestampStr := c.Param(URLParamTagTime)
+	eventType := c.Query(URLQueryTagEventType)
+
+	// rawEventType, _ := parseEventType(eventType)
+
+	// TODO: Supported event types config
+
+	// if !config.EventTypes[rawEventType] {
+	// 	cause := errors.Errorf("Unsupported event type: %s", rawEventType)
+	// 	return nil, "", nil, NewBadRequestError(InvalidEventTypeErrorCode, cause, rawEventType)
+	// }
+
 	db := c.MustGet(ContextIDOrm).(*orm.ORM).GetDB()
 	asset, err := entity.FindAsset(db, assetID)
 	if err != nil {
-		return nil, nil, NewRecordNotFoundDBError(err, assetID)
+		return nil, "", nil, NewRecordNotFoundDBError(err, assetID)
 	}
 	requestedPublishDate, err := ParseTime(timestampStr)
 	if err != nil {
-		return asset, requestedPublishDate, NewBadRequestError(InvalidTimeFormatBadRequestErrorCode, err, timestampStr)
+		return asset, eventType, requestedPublishDate, NewBadRequestError(InvalidTimeFormatBadRequestErrorCode, err, timestampStr)
 	}
-	return asset, requestedPublishDate, err
+
+	return asset, eventType, requestedPublishDate, err
+}
+
+var pattern = regexp.MustCompile("(\\w+)\\((\\d+)\\)")
+
+func parseEventType(eventType string) (string, []string) {
+	if eventType == "" {
+		// Default event type
+		return "digits", []string{}
+	}
+
+	match := pattern.FindAllStringSubmatch(eventType, -1)
+
+	if len(match) == 0 {
+		return eventType, []string{}
+	}
+
+	return match[0][1], []string{match[0][2]}
 }
 
 func calculatePublishDate(requestDate time.Time, config AssetConfig) (*time.Time, error) {
