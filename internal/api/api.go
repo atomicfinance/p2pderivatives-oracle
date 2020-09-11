@@ -3,6 +3,7 @@ package api
 import (
 	"fmt"
 	"net/http"
+	"p2pderivatives-oracle/internal/database/entity"
 	"p2pderivatives-oracle/internal/datafeed"
 	"p2pderivatives-oracle/internal/dlccrypto"
 	"p2pderivatives-oracle/internal/oracle"
@@ -11,6 +12,7 @@ import (
 	"github.com/cryptogarageinc/server-common-go/pkg/log"
 	"github.com/cryptogarageinc/server-common-go/pkg/rest/middleware"
 	"github.com/cryptogarageinc/server-common-go/pkg/rest/router"
+	"github.com/jinzhu/gorm"
 
 	"github.com/pkg/errors"
 
@@ -69,6 +71,22 @@ func (a *OracleAPI) Routes(route *gin.RouterGroup) {
 
 	route.Group(AssetBaseRoute).GET("", func(c *gin.Context) {
 		c.JSON(http.StatusOK, assetRoutes)
+	})
+
+	route.Group(AssetBaseRoute).GET("/rvalue/:rvalue", func(c *gin.Context) {
+		db := c.MustGet(ContextIDOrm).(*orm.ORM).GetDB()
+		oracleInstance := c.MustGet(ContextIDOracle).(*oracle.Oracle)
+		rvalue := c.Param("rvalue")
+
+		dlcData, err := entity.FindDLCDataWithRValue(db, rvalue)
+
+		if err != nil && !gorm.IsRecordNotFoundError(err) {
+			c.Error(NewUnknownDBError(err))
+			return
+		}
+
+		c.JSON(http.StatusOK, NewDLCDataResponse(oracleInstance.PublicKey, dlcData))
+
 	})
 }
 
