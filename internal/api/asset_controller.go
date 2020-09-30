@@ -258,7 +258,7 @@ func validateAssetEventAndTime(c *gin.Context, assetID string, config AssetConfi
 	return asset, eventType, requestedPublishDate, err
 }
 
-var pattern = regexp.MustCompile("(\\w+)\\((\\d+)\\)")
+var pattern = regexp.MustCompile("(\\w+)\\((\\d*\\.?\\d*)\\)")
 
 func parseEventType(eventType string) (string, []string) {
 	if eventType == "" {
