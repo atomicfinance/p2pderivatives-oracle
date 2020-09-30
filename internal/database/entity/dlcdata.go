@@ -104,6 +104,20 @@ func FindDLCDataPublishedAt(db *gorm.DB, assetID string, publishDate time.Time, 
 	return dlcData, nil
 }
 
+// FindDLCDataWithRValue will try to retrieve asset dlcData with the specific rvalue
+// from database
+func FindDLCDataWithRValue(db *gorm.DB, rvalue string) (*DLCData, error) {
+	dlcData := &DLCData{}
+	filterCondition := &DLCData{
+		Rvalue: rvalue,
+	}
+	err := db.Where(filterCondition).Find(dlcData).Error
+	if err != nil {
+		return nil, err
+	}
+	return dlcData, nil
+}
+
 // UpdateDLCDataSignatureAndValue will try to update signature and value of the DLCData if it exists
 // and if the DLCdata is not already signed
 func UpdateDLCDataSignatureAndValue(db *gorm.DB, assetID string, publishDate time.Time, eventType string, sig string, value string) (*DLCData, error) {

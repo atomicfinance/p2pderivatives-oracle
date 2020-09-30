@@ -109,6 +109,23 @@ func Test_FindDLCDataPublishedAt_Present_ReturnsCorrectValue(t *testing.T) {
 	assert.True(t, expected.PublishedDate.Equal(actual.PublishedDate))
 }
 
+func Test_FindDLCDataWithRValue_NotPresent_ReturnsRecordNotFoundError(t *testing.T) {
+	db := GetInitializedDB()
+	_, err := entity.FindDLCDataWithRValue(db, "test")
+	assert.EqualError(t, err, gorm.ErrRecordNotFound.Error())
+}
+
+func Test_FindDLCDataWithRValue_Present_ReturnsCorrectValue(t *testing.T) {
+	db := GetInitializedDB()
+	now := time.Now()
+	expected := &entity.DLCData{AssetID: "test", PublishedDate: now, Kvalue: "", Rvalue: "test123"}
+	db.Create(expected)
+	actual, err := entity.FindDLCDataWithRValue(db, "test123")
+	assert.NoError(t, err)
+	assert.Equal(t, expected.AssetID, actual.AssetID)
+	assert.True(t, expected.PublishedDate.Equal(actual.PublishedDate))
+}
+
 func Test_UpdateDLCDataSignatureAndValue_Present_ReturnsUpdated(t *testing.T) {
 	// arrange
 	db := GetInitializedDB()

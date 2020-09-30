@@ -14,6 +14,7 @@ func NewDLCDataResponse(
 		OraclePublicKey: oraclePubKey.EncodeToString(),
 		PublishedDate:   dlcData.PublishedDate,
 		AssetID:         dlcData.AssetID,
+		EventType:       dlcData.EventType,
 		Rvalue:          dlcData.Rvalue,
 		Signature:       dlcData.Signature,
 		Value:           dlcData.Value,
@@ -24,6 +25,7 @@ func NewDLCDataResponse(
 type DLCDataResponse struct {
 	OraclePublicKey string    `json:"oraclePublicKey"`
 	PublishedDate   time.Time `json:"publishDate"`
+	EventType       string    `json:"eventType"`
 	AssetID         string    `json:"asset"`
 	Rvalue          string    `json:"rvalue"`
 	Signature       string    `json:"signature,omitempty"`
