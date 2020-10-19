@@ -25,7 +25,7 @@ var (
 	// IntegrationDir path to the integration test directory
 	IntegrationDir string
 	// OracleBaseURL The base url of the oracle server (without protocol)
-	OracleBaseURL = flag.String("oracle-base-url", "localhost:8080", "The base url of the oracle server (without protocol)")
+	OracleBaseURL = flag.String("oracle-base-url", "localhost:8081", "The base url of the oracle server (without protocol)")
 	// Config The oracle configuration used by the oracle and that will be used for integration testing
 	Config conf.Configuration
 	// ServConfig Configuration of the http server

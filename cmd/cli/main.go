@@ -9,13 +9,14 @@ import (
 
 	"p2pderivatives-oracle/internal/database/entity"
 
+	stdlog "log"
+	"p2pderivatives-oracle/internal/dlccrypto"
+	"p2pderivatives-oracle/internal/oracle"
+
 	conf "github.com/cryptogarageinc/server-common-go/pkg/configuration"
 	"github.com/cryptogarageinc/server-common-go/pkg/database/orm"
 	"github.com/cryptogarageinc/server-common-go/pkg/log"
 	"github.com/jinzhu/gorm"
-	stdlog "log"
-	"p2pderivatives-oracle/internal/dlccrypto"
-	"p2pderivatives-oracle/internal/oracle"
 )
 
 // "p2pderivatives-oracle/internal/api/asset_controller"
