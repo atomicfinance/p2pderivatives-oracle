@@ -5,13 +5,16 @@ import (
 	"fmt"
 	"os"
 	"strings"
+	"time"
 
 	"p2pderivatives-oracle/internal/database/entity"
 
 	conf "github.com/cryptogarageinc/server-common-go/pkg/configuration"
 	"github.com/cryptogarageinc/server-common-go/pkg/database/orm"
 	"github.com/cryptogarageinc/server-common-go/pkg/log"
+	"github.com/jinzhu/gorm"
 	stdlog "log"
+	"p2pderivatives-oracle/internal/oracle"
 )
 
 // "p2pderivatives-oracle/internal/api/asset_controller"
@@ -30,10 +33,14 @@ func (s *stringList) Set(value string) error {
 }
 
 var (
-	configPath = flag.String("config", "", "Path to the configuration file to use.")
-	appName    = flag.String("appname", "", "The name of the application. Will be use as a prefix for environment variables.")
-	envname    = flag.String("e", "", "environment (ex., \"development\"). Should match with the name of the configuration file.")
-	migrate    = flag.Bool("migrate", false, "If set performs a db migration before starting.")
+	configPath  = flag.String("config", "", "Path to the configuration file to use.")
+	appName     = flag.String("appname", "", "The name of the application. Will be use as a prefix for environment variables.")
+	envname     = flag.String("e", "", "environment (ex., \"development\"). Should match with the name of the configuration file.")
+	migrate     = flag.Bool("migrate", false, "If set performs a db migration before starting.")
+	action      = flag.String("action", "", "Action")
+	asset       = flag.String("asset", "", "Asset")
+	publishdate = flag.String("publishdate", "", "Publish Date")
+	eventtype   = flag.String("eventtype", "", "Event Type")
 )
 
 // Config contains the configuration parameters for the server.
@@ -102,8 +109,8 @@ func main() {
 	listUniquePtr := listCommand.Bool("unique", false, "Measure unique values of a metric.")
 
 	createAssetIDPtr := createCommand.String("asset", "", "Text to parse. (Required)")
-	createPublishDatePtr := createCommand.String("publishdate", "", "Text to parse. (Required)")
-	createEventTypePtr := createCommand.String("eventtype", "", "Text to parse. (Required)")
+	// createPublishDatePtr := createCommand.String("publishdate", "", "Text to parse. (Required)")
+	// createEventTypePtr := createCommand.String("eventtype", "", "Text to parse. (Required)")
 
 	// Verify that a subcommand has been provided
 	// os.Arg[0] is the main command
@@ -117,17 +124,17 @@ func main() {
 	// Parse the flags for appropriate FlagSet
 	// FlagSet.Parse() requires a set of arguments to parse as input
 	// os.Args[2:] will be all arguments starting after the subcommand at os.Args[1]
-	switch os.Args[1] {
-	case "list":
-		listCommand.Parse(os.Args[2:])
-	case "count":
-		countCommand.Parse(os.Args[2:])
-	case "create":
-		createCommand.Parse(os.Args[2:])
-	default:
-		flag.PrintDefaults()
-		os.Exit(1)
-	}
+	// switch os.Args[] {
+	// case "list":
+	// 	listCommand.Parse(os.Args[2:])
+	// case "count":
+	// 	countCommand.Parse(os.Args[2:])
+	// case "create":
+	// 	createCommand.Parse(os.Args[2:])
+	// default:
+	// 	flag.PrintDefaults()
+	// 	os.Exit(1)
+	// }
 
 	// Check which subcommand was Parsed using the FlagSet.Parsed() function. Handle each case accordingly.
 	// FlagSet.Parse() will evaluate to false if no flags were parsed (i.e. the user did not provide any flags)
@@ -184,29 +191,97 @@ func main() {
 		)
 	}
 
-	if createCommand.Parsed() {
-		// Required Flags
-		if *createAssetIDPtr == "" {
-			createCommand.PrintDefaults()
-			os.Exit(1)
-		}
-		if *createPublishDatePtr == "" {
-			createCommand.PrintDefaults()
-			os.Exit(1)
-		}
-		if *createEventTypePtr == "" {
-			createCommand.PrintDefaults()
-			os.Exit(1)
-		}
+	fmt.Println("test")
+	fmt.Println(*action)
+	fmt.Println(*asset)
+	fmt.Println(*migrate)
 
-		// first find asset by asset ID provided to CLI
-		asset, err := entity.FindAsset(db, *createAssetIDPtr)
-		if err != nil {
-			countCommand.PrintDefaults()
-			os.Exit(1)
-		}
-		fmt.Println(asset.AssetID)
+	// if *migrate {
+	// 	err = db.Create(&entity.Asset{AssetID: "election", Description: "Election"}).Error
+	// 	if err != nil {
+	// 		countCommand.PrintDefaults()
+	// 		os.Exit(1)
+	// 	}
+	// }
+
+	asset, err := entity.FindAsset(db, *asset)
+	if err != nil {
+		countCommand.PrintDefaults()
+		os.Exit(1)
 	}
+
+	requestedPublishDate, err := ParseTime(*publishdate)
+	if err != nil {
+		countCommand.PrintDefaults()
+		os.Exit(1)
+	}
+
+	fmt.Println(asset)
+	fmt.Println(asset.Description)
+
+	dlcData, err := entity.FindDLCDataPublishedAt(db, asset.AssetID, *requestedPublishDate, *eventtype)
+	if err == nil {
+		fmt.Println("Found a matchin DLC Data in db")
+		countCommand.PrintDefaults()
+		os.Exit(1)
+	}
+	if err != nil && !gorm.IsRecordNotFoundError(err) {
+		fmt.Println("Unknown DB Error")
+		countCommand.PrintDefaults()
+		os.Exit(1)
+	}
+
+	// if record is not found, need to create the record in db
+	if err != nil && gorm.IsRecordNotFoundError(err) {
+		fmt.Println("Generating new DLC data Rvalue")
+
+		signingK, err := oracle.GenerateKvalue()
+		if err != nil {
+			fmt.Println("Unknown Crypto Service Error: ", err)
+		}
+		fmt.Println("signingK", signingK)
+		// rvalue, err := oracle.ComputeRvalue(signingK)
+		// if err != nil {
+		// 	return nil, NewUnknownCryptoServiceError(err)
+		// }
+		// dlcData, err = entity.CreateDLCData(
+		// 	db,
+		// 	assetID,
+		// 	publishDate,
+		// 	eventType,
+		// 	signingK.EncodeToString(),
+		// 	rvalue.EncodeToString())
+		// if err != nil {
+		// 	// need to retry to be sure a concurrent didn't try to create same DLCData
+		// 	inDb, errFind := entity.FindDLCDataPublishedAt(db, assetID, publishDate, eventType)
+		// 	if errFind != nil {
+		// 		return nil, NewUnknownDBError(err)
+		// 	}
+		// 	dlcData = inDb
+		// }
+	}
+
+	fmt.Println("dlcData", dlcData)
+
+	// if createCommand.Parsed() {
+	// Required Flags
+
+	// first find asset by asset ID provided to CLI
+	// fmt.Println(*createAssetIDPtr)
+
+	// if *createAssetIDPtr == "" {
+	// 	createCommand.PrintDefaults()
+	// 	os.Exit(1)
+	// }
+	// if *createPublishDatePtr == "" {
+	// 	createCommand.PrintDefaults()
+	// 	os.Exit(1)
+	// }
+	// if *createEventTypePtr == "" {
+	// 	createCommand.PrintDefaults()
+	// 	os.Exit(1)
+	// }
+	// }
 }
 
 func newInitializedOrm(config *conf.Configuration, log *log.Log) *orm.ORM {
@@ -230,4 +305,15 @@ func newInitializedLog(config *conf.Configuration) *log.Log {
 	logger := log.NewLog(logConfig)
 	logger.Initialize()
 	return logger
+}
+
+// ParseTime will try to parse a string using ISO8691 format and convert it to a time.Time
+func ParseTime(timeParam string) (*time.Time, error) {
+	timestamp, err := time.Parse(TimeFormatISO8601, timeParam)
+	if err != nil {
+		err = errors.WithMessagef(err, "Invalid time format ! You should use ISO8601 ex: %s", TimeFormatISO8601)
+		return nil, err
+	}
+	utc := timestamp.UTC()
+	return &utc, nil
 }
