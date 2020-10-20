@@ -208,5 +208,6 @@ func doMigration(o *orm.ORM) error {
 	err := db.AutoMigrate(&entity.Asset{}, &entity.DLCData{}).Error
 	err = db.Create(&entity.Asset{AssetID: "btcusd", Description: "BTC USD"}).Error
 	err = db.Create(&entity.Asset{AssetID: "btcjpy", Description: "BTC JPY"}).Error
+	err = db.Create(&entity.Asset{AssetID: "election", Description: "Election"}).Error
 	return err
 }

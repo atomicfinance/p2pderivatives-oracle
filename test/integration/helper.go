@@ -5,10 +5,10 @@ package helper
 import (
 	"flag"
 	"fmt"
+	conf "github.com/cryptogarageinc/server-common-go/pkg/configuration"
 	"log"
 	"os"
 	"p2pderivatives-oracle/internal/api"
-	conf "github.com/cryptogarageinc/server-common-go/pkg/configuration"
 	"p2pderivatives-oracle/internal/oracle"
 	"path/filepath"
 	"runtime"
