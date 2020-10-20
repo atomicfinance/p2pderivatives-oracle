@@ -234,28 +234,6 @@ func main() {
 			}
 		}
 	}
-
-	fmt.Println("dlcData", dlcData)
-
-	// if createCommand.Parsed() {
-	// Required Flags
-
-	// first find asset by asset ID provided to CLI
-	// fmt.Println(*createAssetIDPtr)
-
-	// if *createAssetIDPtr == "" {
-	// 	createCommand.PrintDefaults()
-	// 	os.Exit(1)
-	// }
-	// if *createPublishDatePtr == "" {
-	// 	createCommand.PrintDefaults()
-	// 	os.Exit(1)
-	// }
-	// if *createEventTypePtr == "" {
-	// 	createCommand.PrintDefaults()
-	// 	os.Exit(1)
-	// }
-	// }
 }
 
 func newInitializedOrm(config *conf.Configuration, log *log.Log) *orm.ORM {
