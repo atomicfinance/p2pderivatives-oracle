@@ -14,6 +14,7 @@ import (
 	"github.com/cryptogarageinc/server-common-go/pkg/log"
 	"github.com/jinzhu/gorm"
 	stdlog "log"
+	"p2pderivatives-oracle/internal/dlccrypto"
 	"p2pderivatives-oracle/internal/oracle"
 )
 
@@ -32,6 +33,11 @@ func (s *stringList) Set(value string) error {
 	return nil
 }
 
+const (
+	// TimeFormatISO8601 time format of the api using ISO8601
+	TimeFormatISO8601 = "2006-01-02T15:04:05Z"
+)
+
 var (
 	configPath  = flag.String("config", "", "Path to the configuration file to use.")
 	appName     = flag.String("appname", "", "The name of the application. Will be use as a prefix for environment variables.")
@@ -41,6 +47,7 @@ var (
 	asset       = flag.String("asset", "", "Asset")
 	publishdate = flag.String("publishdate", "", "Publish Date")
 	eventtype   = flag.String("eventtype", "", "Event Type")
+	outcome     = flag.String("outcome", "", "Outcome")
 )
 
 // Config contains the configuration parameters for the server.
@@ -85,32 +92,7 @@ func main() {
 	db := ormInstance.GetDB()
 
 	// Subcommands
-	createCommand := flag.NewFlagSet("create", flag.ExitOnError)
-
-	// Subcommands
 	countCommand := flag.NewFlagSet("count", flag.ExitOnError)
-	listCommand := flag.NewFlagSet("list", flag.ExitOnError)
-
-	// Count subcommand flag pointers
-	// Adding a new choice for --metric of 'substring' and a new --substring flag
-	countTextPtr := countCommand.String("text", "", "Text to parse. (Required)")
-	countMetricPtr := countCommand.String("metric", "chars", "Metric {chars|words|lines|substring}. (Required)")
-	countSubstringPtr := countCommand.String("substring", "", "The substring to be counted. Required for --metric=substring")
-	countUniquePtr := countCommand.Bool("unique", false, "Measure unique values of a metric.")
-
-	// Use flag.Var to create a flag of our new flagType
-	// Default value is the current value at countStringListPtr (currently a nil value)
-	var countStringList stringList
-	countCommand.Var(&countStringList, "substringList", "A comma seperated list of substrings to be counted.")
-
-	// List subcommand flag pointers
-	listTextPtr := listCommand.String("text", "", "Text to parse. (Required)")
-	listMetricPtr := listCommand.String("metric", "chars", "Metric <chars|words|lines>. (Required)")
-	listUniquePtr := listCommand.Bool("unique", false, "Measure unique values of a metric.")
-
-	createAssetIDPtr := createCommand.String("asset", "", "Text to parse. (Required)")
-	// createPublishDatePtr := createCommand.String("publishdate", "", "Text to parse. (Required)")
-	// createEventTypePtr := createCommand.String("eventtype", "", "Text to parse. (Required)")
 
 	// Verify that a subcommand has been provided
 	// os.Arg[0] is the main command
@@ -120,168 +102,137 @@ func main() {
 		os.Exit(1)
 	}
 
-	// Switch on the subcommand
-	// Parse the flags for appropriate FlagSet
-	// FlagSet.Parse() requires a set of arguments to parse as input
-	// os.Args[2:] will be all arguments starting after the subcommand at os.Args[1]
-	// switch os.Args[] {
-	// case "list":
-	// 	listCommand.Parse(os.Args[2:])
-	// case "count":
-	// 	countCommand.Parse(os.Args[2:])
-	// case "create":
-	// 	createCommand.Parse(os.Args[2:])
-	// default:
-	// 	flag.PrintDefaults()
-	// 	os.Exit(1)
-	// }
-
-	// Check which subcommand was Parsed using the FlagSet.Parsed() function. Handle each case accordingly.
-	// FlagSet.Parse() will evaluate to false if no flags were parsed (i.e. the user did not provide any flags)
-	if listCommand.Parsed() {
-		// Required Flags
-		if *listTextPtr == "" {
-			listCommand.PrintDefaults()
-			os.Exit(1)
-		}
-		//Choice flag
-		metricChoices := map[string]bool{"chars": true, "words": true, "lines": true}
-		if _, validChoice := metricChoices[*listMetricPtr]; !validChoice {
-			listCommand.PrintDefaults()
-			os.Exit(1)
-		}
-		// Print
-		fmt.Printf("textPtr: %s, metricPtr: %s, uniquePtr: %t\n",
-			*listTextPtr,
-			*listMetricPtr,
-			*listUniquePtr,
-		)
-	}
-
-	if countCommand.Parsed() {
-		// Required Flags
-		if *countTextPtr == "" {
-			countCommand.PrintDefaults()
-			os.Exit(1)
-		}
-		// If the metric flag is substring, the substring or substringList flag is required
-		if *countMetricPtr == "substring" && *countSubstringPtr == "" && (&countStringList).String() == "[]" {
-			countCommand.PrintDefaults()
-			os.Exit(1)
-		}
-		//If the metric flag is not substring, the substring flag must not be used
-		if *countMetricPtr != "substring" && (*countSubstringPtr != "" || (&countStringList).String() != "[]") {
-			fmt.Println("--substring and --substringList may only be used with --metric=substring.")
-			countCommand.PrintDefaults()
-			os.Exit(1)
-		}
-		//Choice flag
-		metricChoices := map[string]bool{"chars": true, "words": true, "lines": true, "substring": true}
-		if _, validChoice := metricChoices[*listMetricPtr]; !validChoice {
-			countCommand.PrintDefaults()
-			os.Exit(1)
-		}
-		//Print
-		fmt.Printf("textPtr: %s, metricPtr: %s, substringPtr: %v, substringListPtr: %v, uniquePtr: %t\n",
-			*countTextPtr,
-			*countMetricPtr,
-			*countSubstringPtr,
-			(&countStringList).String(),
-			*countUniquePtr,
-		)
-	}
-
-	fmt.Println("test")
-	fmt.Println(*action)
-	fmt.Println(*asset)
-	fmt.Println(*migrate)
-
-	// if *migrate {
-	// 	err = db.Create(&entity.Asset{AssetID: "election", Description: "Election"}).Error
-	// 	if err != nil {
-	// 		countCommand.PrintDefaults()
-	// 		os.Exit(1)
-	// 	}
-	// }
-
-	asset, err := entity.FindAsset(db, *asset)
-	if err != nil {
-		countCommand.PrintDefaults()
-		os.Exit(1)
-	}
-
-	requestedPublishDate, err := ParseTime(*publishdate)
-	if err != nil {
-		countCommand.PrintDefaults()
-		os.Exit(1)
-	}
-
-	fmt.Println(asset)
-	fmt.Println(asset.Description)
-
-	dlcData, err := entity.FindDLCDataPublishedAt(db, asset.AssetID, *requestedPublishDate, *eventtype)
-	if err == nil {
-		fmt.Println("Found a matchin DLC Data in db")
-		countCommand.PrintDefaults()
-		os.Exit(1)
-	}
-	if err != nil && !gorm.IsRecordNotFoundError(err) {
-		fmt.Println("Unknown DB Error")
-		countCommand.PrintDefaults()
-		os.Exit(1)
-	}
-
-	// if record is not found, need to create the record in db
-	if err != nil && gorm.IsRecordNotFoundError(err) {
-		fmt.Println("Generating new DLC data Rvalue")
-
-		signingK, err := oracle.GenerateKvalue()
+	if *action == "create" {
+		asset, err := entity.FindAsset(db, *asset)
 		if err != nil {
-			fmt.Println("Unknown Crypto Service Error: ", err)
+			countCommand.PrintDefaults()
+			os.Exit(1)
 		}
-		fmt.Println("signingK", signingK)
-		// rvalue, err := oracle.ComputeRvalue(signingK)
-		// if err != nil {
-		// 	return nil, NewUnknownCryptoServiceError(err)
-		// }
-		// dlcData, err = entity.CreateDLCData(
-		// 	db,
-		// 	assetID,
-		// 	publishDate,
-		// 	eventType,
-		// 	signingK.EncodeToString(),
-		// 	rvalue.EncodeToString())
-		// if err != nil {
-		// 	// need to retry to be sure a concurrent didn't try to create same DLCData
-		// 	inDb, errFind := entity.FindDLCDataPublishedAt(db, assetID, publishDate, eventType)
-		// 	if errFind != nil {
-		// 		return nil, NewUnknownDBError(err)
-		// 	}
-		// 	dlcData = inDb
-		// }
+
+		requestedPublishDate, err := ParseTime(*publishdate)
+		if err != nil {
+			countCommand.PrintDefaults()
+			os.Exit(1)
+		}
+
+		fmt.Println(asset)
+		fmt.Println(asset.Description)
+
+		dlcData, err := entity.FindDLCDataPublishedAt(db, asset.AssetID, *requestedPublishDate, *eventtype)
+		if err == nil {
+			fmt.Println("Found a matchin DLC Data in db")
+			countCommand.PrintDefaults()
+			os.Exit(1)
+		}
+		if err != nil && !gorm.IsRecordNotFoundError(err) {
+			fmt.Println("Unknown DB Error")
+			countCommand.PrintDefaults()
+			os.Exit(1)
+		}
+
+		cryptoInstance := dlccrypto.NewCfdgoCryptoService()
+
+		// if record is not found, need to create the record in db
+		if err != nil && gorm.IsRecordNotFoundError(err) {
+			fmt.Println("Generating new DLC data Rvalue")
+
+			signingK, err := cryptoInstance.GenerateKvalue()
+			if err != nil {
+				fmt.Println("Unknown Crypto Service Error: ", err)
+				countCommand.PrintDefaults()
+				os.Exit(1)
+			}
+			fmt.Println("signingK", signingK)
+			rvalue, err := cryptoInstance.ComputeRvalue(signingK)
+			if err != nil {
+				fmt.Println("Unknown Crypto Service Error: ", err)
+				countCommand.PrintDefaults()
+				os.Exit(1)
+			}
+			dlcData, err = entity.CreateDLCData(
+				db,
+				asset.AssetID,
+				*requestedPublishDate,
+				*eventtype,
+				signingK.EncodeToString(),
+				rvalue.EncodeToString())
+			if err != nil {
+				// need to retry to be sure a concurrent didn't try to create same DLCData
+				inDb, errFind := entity.FindDLCDataPublishedAt(db, asset.AssetID, *requestedPublishDate, *eventtype)
+				if errFind != nil {
+					fmt.Println("Unknown DB Error: ", err)
+					countCommand.PrintDefaults()
+					os.Exit(1)
+				}
+				dlcData = inDb
+			}
+		}
+
+		fmt.Println("dlcData", dlcData)
 	}
 
-	fmt.Println("dlcData", dlcData)
+	if *action == "sign" {
+		asset, err := entity.FindAsset(db, *asset)
+		if err != nil {
+			countCommand.PrintDefaults()
+			os.Exit(1)
+		}
 
-	// if createCommand.Parsed() {
-	// Required Flags
+		requestedPublishDate, err := ParseTime(*publishdate)
+		if err != nil {
+			countCommand.PrintDefaults()
+			os.Exit(1)
+		}
 
-	// first find asset by asset ID provided to CLI
-	// fmt.Println(*createAssetIDPtr)
+		fmt.Println(asset)
+		fmt.Println(asset.Description)
 
-	// if *createAssetIDPtr == "" {
-	// 	createCommand.PrintDefaults()
-	// 	os.Exit(1)
-	// }
-	// if *createPublishDatePtr == "" {
-	// 	createCommand.PrintDefaults()
-	// 	os.Exit(1)
-	// }
-	// if *createEventTypePtr == "" {
-	// 	createCommand.PrintDefaults()
-	// 	os.Exit(1)
-	// }
-	// }
+		dlcData, err := entity.FindDLCDataPublishedAt(db, asset.AssetID, *requestedPublishDate, *eventtype)
+		if err != nil {
+			fmt.Println("Unknown find DLC Error: ", err)
+			os.Exit(1)
+		}
+		if !dlcData.IsSigned() {
+			fmt.Println("Computing Signature")
+
+			var valueMessage string
+			valueMessage = *outcome
+
+			// Setup Oracle
+			oracleConfig := &oracle.Config{}
+			config.InitializeComponentConfig(oracleConfig)
+			oracleInstance, err := oracle.FromConfig(oracleConfig)
+			if err != nil {
+				fmt.Println("Could not create a oracle instance, Error: ", err)
+				os.Exit(1)
+			}
+
+			cryptoInstance := dlccrypto.NewCfdgoCryptoService()
+
+			kvalue, err := dlccrypto.NewPrivateKey(dlcData.Kvalue)
+			if err != nil {
+				fmt.Println("Unknown Crypto Service Error: ", err)
+				os.Exit(1)
+			}
+			sig, err := cryptoInstance.ComputeSchnorrSignature(oracleInstance.PrivateKey, kvalue, valueMessage)
+			if err != nil {
+				fmt.Println("Unknown Crypto Service Error: ", err)
+				os.Exit(1)
+			}
+
+			dlcData, err = entity.UpdateDLCDataSignatureAndValue(
+				db,
+				dlcData.AssetID,
+				dlcData.PublishedDate,
+				dlcData.EventType,
+				sig.EncodeToString(),
+				valueMessage)
+
+			if err != nil {
+				fmt.Println("Unknown DB Error: ", err)
+			}
+		}
+	}
 }
 
 func newInitializedOrm(config *conf.Configuration, log *log.Log) *orm.ORM {
@@ -311,7 +262,8 @@ func newInitializedLog(config *conf.Configuration) *log.Log {
 func ParseTime(timeParam string) (*time.Time, error) {
 	timestamp, err := time.Parse(TimeFormatISO8601, timeParam)
 	if err != nil {
-		err = errors.WithMessagef(err, "Invalid time format ! You should use ISO8601 ex: %s", TimeFormatISO8601)
+		fmt.Println(err, "Invalid time format ! You should use ISO8601 ex: %s", TimeFormatISO8601)
+		os.Exit(1)
 		return nil, err
 	}
 	utc := timestamp.UTC()
