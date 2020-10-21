@@ -7,6 +7,7 @@ import (
 	"github.com/cryptogarageinc/server-common-go/pkg/database/orm"
 	"github.com/cryptogarageinc/server-common-go/pkg/log"
 	"github.com/cryptogarageinc/server-common-go/pkg/rest/router"
+	"github.com/rs/cors"
 	stdlog "log"
 	"net/http"
 	"os"
@@ -72,7 +73,7 @@ func main() {
 
 	srv := &http.Server{
 		Addr:    serverConfig.Address,
-		Handler: routerInstance.GetEngine(),
+		Handler: cors.Default().Handler(routerInstance.GetEngine()),
 	}
 
 	listenAndServe := func() error {
