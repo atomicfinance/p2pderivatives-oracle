@@ -3,11 +3,6 @@ package main
 import (
 	"context"
 	"flag"
-	conf "github.com/cryptogarageinc/server-common-go/pkg/configuration"
-	"github.com/cryptogarageinc/server-common-go/pkg/database/orm"
-	"github.com/cryptogarageinc/server-common-go/pkg/log"
-	"github.com/cryptogarageinc/server-common-go/pkg/rest/router"
-	"github.com/rs/cors"
 	stdlog "log"
 	"net/http"
 	"os"
@@ -20,6 +15,17 @@ import (
 	"p2pderivatives-oracle/internal/oracle"
 	"syscall"
 	"time"
+
+	conf "github.com/cryptogarageinc/server-common-go/pkg/configuration"
+	"github.com/cryptogarageinc/server-common-go/pkg/database/orm"
+	"github.com/cryptogarageinc/server-common-go/pkg/log"
+	"github.com/cryptogarageinc/server-common-go/pkg/rest/router"
+	"github.com/rs/cors"
+
+	conf "github.com/cryptogarageinc/server-common-go/pkg/configuration"
+	"github.com/cryptogarageinc/server-common-go/pkg/database/orm"
+	"github.com/cryptogarageinc/server-common-go/pkg/log"
+	"github.com/cryptogarageinc/server-common-go/pkg/rest/router"
 )
 
 var (
@@ -208,7 +214,8 @@ func doMigration(o *orm.ORM) error {
 	db := o.GetDB()
 	err := db.AutoMigrate(&entity.Asset{}, &entity.DLCData{}).Error
 	err = db.Create(&entity.Asset{AssetID: "btcusd", Description: "BTC USD"}).Error
-	err = db.Create(&entity.Asset{AssetID: "btcjpy", Description: "BTC JPY"}).Error
+	err = db.Create(&entity.Asset{AssetID: "ethusd", Description: "ETH USD"}).Error
+	err = db.Create(&entity.Asset{AssetID: "sushiusd", Description: "SUSHI USD"}).Error
 	err = db.Create(&entity.Asset{AssetID: "election", Description: "Election"}).Error
 	return err
 }

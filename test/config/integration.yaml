@@ -1,9 +1,9 @@
 server:
   address: "0.0.0.0:8081"
 oracle:
-  keyFile: ../../certs/oracle/key.pem
+  keyFile: ./certs/oracle/key.pem
   keyPass:
-    file: ../../certs/oracle/pass.txt
+    file: ./certs/oracle/pass.txt
 log:
   dir: _log
   output_stdout: true
@@ -27,14 +27,14 @@ api:
       startDate: 2020-01-01T00:00:00Z
       frequency: PT1H
       range: P10DT
-    btcjpy:
-      asset: btc
-      currency: jpy
+    ethusd:
+      asset: eth
+      currency: usd
       startDate: 2020-01-01T00:00:00Z
       frequency: PT1H
       range: P2MT
-    linkusd:
-      asset: link
+    sushiusd:
+      asset: sushi
       currency: usd
       hasDecimals: true
       startDate: 2020-01-01T00:00:00Z

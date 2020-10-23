@@ -133,6 +133,12 @@ func (ct *AssetController) GetAssetSignature(c *gin.Context) {
 	if !dlcData.IsSigned() {
 		logger.Debug("Computing Signature")
 		asset, currency := ct.config.Asset, ct.config.Currency
+
+		if asset == "election" {
+			c.Error(NewUnknownCryptoServiceError(err))
+			return
+		}
+
 		feed := c.MustGet(ContextIDDataFeed).(datafeed.DataFeed)
 		value, err := feed.FindPastAssetPrice(asset, currency, dlcData.PublishedDate)
 		if err != nil {
