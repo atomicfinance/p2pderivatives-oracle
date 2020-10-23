@@ -40,6 +40,13 @@ api:
       startDate: 2020-01-01T00:00:00Z
       frequency: PT1H
       range: P10DT
+    election:
+      asset: election
+      currency: republican
+      hasDecimals: false
+      startDate: 2020-01-01T00:00:00Z
+      frequency: PT1H
+      range: P15DT
 # to use avoid using cryptocompare
 # use :
 # datafeed:
