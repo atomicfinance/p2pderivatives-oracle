@@ -126,9 +126,6 @@ func (ct *AssetController) GetAssetSignature(c *gin.Context) {
 	db := c.MustGet(ContextIDOrm).(*orm.ORM).GetDB()
 	crypto := c.MustGet(ContextIDCryptoService).(dlccrypto.CryptoService)
 	dlcData, err := findOrCreateDLCData(logger, db, crypto, ct.assetID, eventType, *publishDate, ct.config)
-	if ct.assetID == "election" {
-		return
-	}
 	if err != nil {
 		c.Error(err)
 		return
