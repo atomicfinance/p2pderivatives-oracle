@@ -137,14 +137,14 @@ func main() {
 		if err != nil && gorm.IsRecordNotFoundError(err) {
 			fmt.Println("Generating new DLC data Rvalue")
 
-			signingK, err := cryptoInstance.GenerateKvalue()
+			signingK, rvalue, err := cryptoInstance.GenerateSchnorrKeyPair()
+
 			if err != nil {
 				fmt.Println("Unknown Crypto Service Error: ", err)
 				countCommand.PrintDefaults()
 				os.Exit(1)
 			}
 			fmt.Println("signingK", signingK)
-			rvalue, err := cryptoInstance.ComputeRvalue(signingK)
 			if err != nil {
 				fmt.Println("Unknown Crypto Service Error: ", err)
 				countCommand.PrintDefaults()
